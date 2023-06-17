@@ -1,0 +1,98 @@
+<html>
+<head>
+<title>EnergyHub</title>
+</head>
+<body>
+
+<div id="connectingMessage">Connecting...</div>
+
+<div id="statusSummary">
+
+Last updated at: <span id=lastUpdatedDate></span>
+
+<button onclick="location.reload(); //TODO update without reloading page">Refresh</button>
+
+<br>
+Latest Power Produced: <span id="latestPowerProduced"></span>kW<br>
+Energy Produced Today: <span id="todayEnergyProduced"></span>kWh<br>
+Weekly Average Energy: <span id="weeklyEnergyProduced"></span>kWh<br>
+Lifetime Energy Produced: <span id="lifetimeEnergyProduced"></span>kWh<br>
+
+
+</div>
+
+<button id="RawStatusButton" onclick="showOrHideId('RawStatusBox');" style="display:none;">Show Raw System Status</button>
+<div id="RawStatusBox" style="display:none; width=80%;">
+	<pre id="rawStatusText">
+	</pre>
+</div>
+
+
+<button onclick="showOrHideId('tokenMenu');">API Token Settings</button>
+<div id=tokenMenu style="display:none;">
+	<h4>Enphase Envoy API</h4>
+	<a href="https://enphase.com/download/accessing-iq-gateway-local-apis-or-local-ui-token-based-authentication">
+		Instructions for generating a token
+		</a>
+		(use "Obtaining a token programmatically via GET on a URL section")<br>
+		<input id="tokenBox" type="text" placeholder="paste access token here">
+		<button onclick="saveToken();">save token</button>
+		</input>
+
+</div>
+<script>
+	
+	function showOrHideId(idToShow){
+		if (document.getElementById(idToShow).style.display=='none'){
+			document.getElementById(idToShow).style.display="block";
+		} else {
+			document.getElementById(idToShow).style.display="none";
+		}
+	}
+	
+	function saveToken(){
+		var newToken = document.getElementById("tokenBox").value;
+		//sanitize token
+		newToken = newToken.replace(/[^0-9a-zA-Z_.]+/g, '');
+		localStorage.setItem("envoyToken", newToken);
+		
+	}
+	
+	var envoyToken = localStorage.getItem("envoyToken");
+	console.log("found enphase token:", envoyToken);
+	if (envoyToken == null || envoyToken==""){
+		document.getElementById('tokenMenu').style.display='block';
+	}
+	
+	const request = new XMLHttpRequest();
+	
+	request.open("GET","https://envoy.local/production.json")
+	request.setRequestHeader("Accept","application/json")
+	request.setRequestHeader("Authorization","Bearer "+envoyToken)
+	request.send()
+	
+	request.onloadend = function () {
+		// do something with the data sent in the request
+		var productionData = JSON.parse(request.responseText)
+		console.log(productionData);
+		document.getElementById('rawStatusText').innerText=JSON.stringify(productionData,null,4);
+		
+		//populate the summary fields
+		document.getElementById('lastUpdatedDate').innerText = new Date(productionData.production[1].readingTime*1000);
+		document.getElementById('latestPowerProduced').innerText = productionData.production[1].wNow;
+		document.getElementById('todayEnergyProduced').innerText = productionData.production[1].whToday;
+		document.getElementById('weeklyEnergyProduced').innerText = productionData.production[1].whLastSevenDays;
+		document.getElementById('lifetimeEnergyProduced').innerText = productionData.production[1].whLifetime;
+		
+		
+		showOrHideId('connectingMessage');
+		showOrHideId('RawStatusButton');
+	};
+
+</script>
+
+
+</body>
+</html>
+
+
